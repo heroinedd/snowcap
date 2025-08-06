@@ -40,6 +40,8 @@ pub enum Topology {
     SimpleNet,
     SmallNet,
     StateSpecificChainGadget,
+    ChainNGadget,
+    ChainKGadget,
 }
 
 impl fmt::Display for Topology {
@@ -89,6 +91,12 @@ impl fmt::Display for Topology {
             }
             Topology::StateSpecificChainGadget => {
                 write!(f, "StateSpecificChainGadget")
+            }
+            Topology::ChainNGadget => {
+                write!(f, "ChainNGadget")
+            }
+            Topology::ChainKGadget => {
+                write!(f, "ChainKGadget")
             }
         }
     }
@@ -152,6 +160,14 @@ pub enum Reps {
     Rep90,
     #[clap(name = "100")]
     Rep100,
+    #[clap(name = "200")]
+    Rep200,
+    #[clap(name = "300")]
+    Rep300,
+    #[clap(name = "400")]
+    Rep400,
+    #[clap(name = "500")]
+    Rep500,
 }
 
 impl fmt::Display for Reps {
@@ -185,6 +201,10 @@ impl fmt::Display for Reps {
             Reps::Rep80 => write!(f, "80"),
             Reps::Rep90 => write!(f, "90"),
             Reps::Rep100 => write!(f, "100"),
+            Reps::Rep200 => write!(f, "200"),
+            Reps::Rep300 => write!(f, "300"),
+            Reps::Rep400 => write!(f, "400"),
+            Reps::Rep500 => write!(f, "500"),
         }
     }
 }
@@ -990,6 +1010,42 @@ pub fn example_networks_scenario(
                 CurrentNet::get_policy(&net, final_variant),
             ))
         }
+        (Topology::ChainGadget, Some(Reps::Rep200)) => {
+            type CurrentNet = example_networks::ChainGadget<Repetition200>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainGadget, Some(Reps::Rep300)) => {
+            type CurrentNet = example_networks::ChainGadget<Repetition300>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainGadget, Some(Reps::Rep400)) => {
+            type CurrentNet = example_networks::ChainGadget<Repetition400>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainGadget, Some(Reps::Rep500)) => {
+            type CurrentNet = example_networks::ChainGadget<Repetition500>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
         (Topology::ChainGadget, _) => {
             type CurrentNet = example_networks::ChainGadget;
             let net = CurrentNet::net(initial_variant);
@@ -1712,6 +1768,276 @@ pub fn example_networks_scenario(
         }
         (Topology::StateSpecificChainGadget, _) => {
             type CurrentNet = example_networks::StateSpecificChainGadget;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep10)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition10>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep20)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition20>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep30)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition30>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep40)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition40>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep50)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition50>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep60)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition60>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep70)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition70>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep80)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition80>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep90)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition90>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep100)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition100>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep200)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition200>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep300)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition300>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep400)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition400>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, Some(Reps::Rep500)) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition500>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainNGadget, _) => {
+            type CurrentNet = example_networks::ChainNGadget<Repetition100>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep10)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition10>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep20)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition20>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep30)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition30>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep40)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition40>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep50)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition50>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep60)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition60>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep70)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition70>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep80)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition80>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep90)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition90>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep100)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition100>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep200)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition200>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep300)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition300>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep400)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition400>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, Some(Reps::Rep500)) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition500>;
+            let net = CurrentNet::net(initial_variant);
+            Ok((
+                net.clone(),
+                CurrentNet::final_config(&net, final_variant),
+                CurrentNet::get_policy(&net, final_variant),
+            ))
+        }
+        (Topology::ChainKGadget, _) => {
+            type CurrentNet = example_networks::ChainKGadget<Repetition100>;
             let net = CurrentNet::net(initial_variant);
             Ok((
                 net.clone(),

@@ -24,6 +24,7 @@ use crate::netsim::{printer, Network, NetworkError};
 use crate::permutators::{Permutator, PermutatorItem};
 use crate::{Error, Stopper};
 
+use itertools::Itertools;
 use log::*;
 use std::marker::PhantomData;
 use std::time::{Duration, SystemTime};
@@ -104,7 +105,10 @@ where
     fn work(&mut self, mut abort: Stopper) -> Result<Vec<ConfigModifier>, Error> {
         // check all permutations
         let mut permutator = P::new(self.modifiers.clone());
+        let mut all_valid_ordering: Vec<Vec<ConfigModifier>> = Vec::new();
+        let mut num = 0;
         while let Some(possible_try) = permutator.next() {
+            num += 1;
             // check for time budget
             if self.stop_time.as_ref().map(|time| time.elapsed().is_ok()).unwrap_or(false) {
                 // time budget is used up!
@@ -127,7 +131,10 @@ where
                     .collect::<Vec<usize>>()
             );
             match self.check_sequence(&possible_try) {
-                Ok(()) => return Ok(possible_try),
+                Ok(()) => {
+                    // return Ok(possible_try);
+                    all_valid_ordering.push(possible_try.clone());
+                }
                 Err(index) => {
                     // tell the permutator that we failed
                     permutator.fail_pos(index);
@@ -135,6 +142,11 @@ where
             }
         }
 
+        // println!("Number of checked sequence:\n {}", num);
+
+        if !all_valid_ordering.is_empty() {
+            return Ok(all_valid_ordering[0].clone());
+        }
         Err(Error::NoSafeOrdering)
     }
 

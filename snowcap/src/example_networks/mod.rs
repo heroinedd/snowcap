@@ -61,6 +61,9 @@ pub use abilene_net::AbileneNetwork;
 mod variable_abilene_net;
 pub use variable_abilene_net::VariableAbileneNetwork;
 
+mod chain_pro_gadget;
+pub use chain_pro_gadget::{ChainNGadget, ChainKGadget};
+
 /// Trait for easier access to example networks.
 pub trait ExampleNetwork {
     /// Get the network configured with the chosen initial variant.

@@ -18,10 +18,10 @@
 //! # Net Update Bencher
 //!
 //! This library benchmarks the system based on a specific reconfiguration scenario.
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 
-mod runner_optimizer;
-mod runner_strategy;
+pub mod runner_optimizer;
+pub mod runner_strategy;
 mod utils;
 
 use runner_optimizer::bench as optimizer_bench;

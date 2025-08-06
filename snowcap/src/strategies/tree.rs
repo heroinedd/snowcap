@@ -118,13 +118,19 @@ where
         let mut net = self.net.clone();
         let mut hard_policy = self.hard_policy.clone();
 
+        let mut all_valid_ordering: Vec<Vec<ConfigModifier>> = Vec::new();
+        let mut num = 0;
+
         loop {
+            num += 1;
             let mut pop_stack: bool = false;
             let mut push_stack: Option<Stack> = None;
             if let Some(s) = stack.last_mut() {
                 // we are done if s.rem_mod is empty
                 if s.rem_mod.is_empty() {
-                    break Ok(mod_sequence);
+                    // break Ok(mod_sequence);
+                    all_valid_ordering.push(mod_sequence.clone());
+                    pop_stack = true;
                 }
                 if s.cur_idx >= s.rem_mod.len() {
                     // the current modifier is equal to the length of s.rem_mod! the current
@@ -181,6 +187,10 @@ where
                     }
                 }
             } else {
+                if !all_valid_ordering.is_empty() {
+                    println!("Number of all valid ordering: {:#?}", all_valid_ordering.len());
+                    break Ok(all_valid_ordering[0].clone())
+                }
                 // the stack is empty! We found nothing!
                 break Err(Error::NoSafeOrdering);
             }

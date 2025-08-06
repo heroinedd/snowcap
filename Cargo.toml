@@ -7,4 +7,5 @@ members = [
     "snowcap_bencher",
     "problem_probability",
     "gns3",
+    "smoothie"
 ]

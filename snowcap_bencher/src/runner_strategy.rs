@@ -251,7 +251,7 @@ pub fn bench(
     Ok(result)
 }
 
-fn worker_runner<S: Strategy, SP: SoftPolicy>(
+pub fn worker_runner<S: Strategy, SP: SoftPolicy>(
     net: &Network,
     final_config: &Config,
     hard_policy: &HardPolicy,

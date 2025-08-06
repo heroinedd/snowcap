@@ -15,7 +15,7 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-//! Repetitions for the diffiult gadget
+//! Repetitions for the difficult gadget
 
 /// Trait for encoding the number of repetitions as a type.
 pub trait Repetitions {
@@ -272,5 +272,41 @@ pub struct Repetition100 {}
 impl Repetitions for Repetition100 {
     fn get_count() -> usize {
         100
+    }
+}
+
+/// 200 repetitions
+pub struct Repetition200 {}
+
+impl Repetitions for Repetition200 {
+    fn get_count() -> usize {
+        200
+    }
+}
+
+/// 300 repetitions
+pub struct Repetition300 {}
+
+impl Repetitions for Repetition300 {
+    fn get_count() -> usize {
+        300
+    }
+}
+
+/// 400 repetitions
+pub struct Repetition400 {}
+
+impl Repetitions for Repetition400 {
+    fn get_count() -> usize {
+        400
+    }
+}
+
+/// 500 repetitions
+pub struct Repetition500 {}
+
+impl Repetitions for Repetition500 {
+    fn get_count() -> usize {
+        500
     }
 }
