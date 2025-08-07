@@ -1,4 +1,5 @@
 mod smoothie_chain;
+mod utils;
 
 use crate::smoothie_chain::SmoothieChainGadget;
 use glob::glob;
@@ -6,7 +7,6 @@ use serde::ser::SerializeMap;
 use serde::Serialize;
 use snowcap::modifier_ordering::RandomOrdering;
 use snowcap::netsim::config::ConfigPatch;
-use snowcap::netsim::printer;
 use snowcap::optimizers::{Optimizer, OptimizerTRTA};
 use snowcap::permutators::RandomTreePermutator;
 use snowcap::soft_policies::{MinimizeTrafficShift, SoftPolicy};
@@ -16,7 +16,6 @@ use snowcap::Stopper;
 use snowcap_main::arguments::Scenario;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt::format;
 use std::time::{Duration, SystemTime};
 
 pub fn test_chain_change_steps() -> Result<(), Box<dyn Error>> {
@@ -72,7 +71,7 @@ pub fn test_topology_zoo() -> Result<(), Box<dyn Error>> {
             network.clone(),
             patch.modifiers.clone(),
             hard_policy.clone(),
-            Some(Duration::from_secs(600)),
+            Some(Duration::from_secs(60)),
         )?;
         tree.work(Stopper::new()).unwrap_or_default();
         let tree_duration = start.elapsed().unwrap().as_secs_f64();
@@ -89,7 +88,7 @@ pub fn test_topology_zoo() -> Result<(), Box<dyn Error>> {
         });
         let schedule_str: Vec<String> = schedule
             .iter()
-            .map(|m| printer::config_modifier(&network, m).unwrap())
+            .map(|m| utils::config_modifier(&network, m).unwrap())
             .collect();
         let learned_groups = optimizer.num_groups();
         let result = TopologyZooResult {
