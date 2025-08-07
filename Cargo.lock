@@ -402,6 +402,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
+
+[[package]]
 name = "gns3"
 version = "0.1.0"
 dependencies = [
@@ -1242,8 +1248,11 @@ checksum = "7acad6f34eb9e8a259d3283d1e8c1d34d7415943d4895f65cc73813c7396fc85"
 name = "smoothie_main"
 version = "0.1.0"
 dependencies = [
+ "glob",
  "log",
  "pretty_env_logger",
+ "serde",
+ "serde_json",
  "snowcap",
  "snowcap_main",
 ]

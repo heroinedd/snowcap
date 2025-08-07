@@ -480,6 +480,11 @@ impl ZooTopology {
             .collect()
     }
 
+    /// Returns the graph
+    pub fn get_graph(&self) -> Graph<NodeData, LinkWeight, Undirected, u32> {
+        self.graph.clone()
+    }
+
     /// Randomize all link weights
     pub fn randomize_link_weights(&mut self, max: u32) -> &mut Self {
         info!("Randomize the link weights.");

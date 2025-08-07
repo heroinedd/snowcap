@@ -311,6 +311,16 @@ impl<P> OptimizerTRTA<P>
 where
     P: SoftPolicy + Clone,
 {
+    /// Return the number of learned dependency groups
+    pub fn num_groups(&self) -> usize {
+        self.groups.iter().filter(|g| g.len() > 1).count()
+    }
+}
+
+impl<P> OptimizerTRTA<P>
+where
+    P: SoftPolicy + Clone,
+{
     /// Check all remaining possible choices at the current position in the stack. For all options,
     /// we check if it is possible and what the cost is. Once finished, this function will return a
     /// tuple, where the first vector contains all the valid options, including the cost, already
