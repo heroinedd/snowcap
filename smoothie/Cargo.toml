@@ -8,12 +8,7 @@ default-run = "smoothie_main"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-snowcap = { path = "../snowcap", features = ["transient-violation"] }
+snowcap = { path = "../snowcap", features = ["count-states"] }
 snowcap_main = { path = "../snowcap_main" }
-snowcap_runtime = { path = "../snowcap_runtime" }
-snowcap_bencher = { path = "../snowcap_bencher" }
-log = "0.4"
 pretty_env_logger = "0.4"
-clap = { git = "https://github.com/clap-rs/clap", branch = "master"}
-rand = "0.7"
-num_cpus = "1"
+log = "0.4.11"

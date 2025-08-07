@@ -1,21 +1,4 @@
-// Snowcap: Synthesizing Network-Wide Configuration Updates
-// Copyright (C) 2021  Tibor Schneider
-//
-// This program is free software; you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation; either version 2 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License along
-// with this program; if not, write to the Free Software Foundation, Inc.,
-// 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
-//! # The Tree Strategy
+//! # The Exhaustive Tree Strategy, visit all intermediate snapshots through a DFS/BFS traversal
 
 use super::{ExhaustiveStrategy, Strategy};
 use crate::hard_policies::HardPolicy;
@@ -28,7 +11,7 @@ use log::*;
 use std::marker::PhantomData;
 use std::time::{Duration, SystemTime};
 
-/// # The Tree Strategy
+/// # The Exhaustive Tree Strategy
 ///
 /// The Tree strategy recursively builds a tree by choosing one of the remaining modifiers and
 /// simulating the result. If all policies are satisfied, continue by choosing one of the remaining
@@ -45,27 +28,26 @@ use std::time::{Duration, SystemTime};
 /// ## Type Arguments
 /// - `O` represents the chosen [`ModifierOrdering`](crate::modifier_ordering::ModifierOrdering),
 ///   which is used to order the modifiers before the tree algorithm starts.
-pub struct TreeStrategy<O>
+pub struct ExhaustiveTreeStrategy<O>
 where
     O: ModifierOrdering<ConfigModifier>,
 {
     net: Network,
     modifiers: Vec<ConfigModifier>,
-    hard_policy: HardPolicy,
     stop_time: Option<SystemTime>,
     phantom: PhantomData<O>,
     #[cfg(feature = "count-states")]
     num_states: usize,
 }
 
-impl<O> Strategy for TreeStrategy<O>
+impl<O> Strategy for ExhaustiveTreeStrategy<O>
 where
     O: ModifierOrdering<ConfigModifier>,
 {
     fn new(
         mut net: Network,
         mut modifiers: Vec<ConfigModifier>,
-        mut hard_policy: HardPolicy,
+        mut _hard_policy: HardPolicy,
         time_budget: Option<Duration>,
     ) -> Result<Box<Self>, Error> {
         // clear the undo stack
@@ -84,25 +66,10 @@ where
                 .join("\n")
         );
 
-        let mut fw_state = net.get_forwarding_state();
-        hard_policy.set_num_mods_if_none(modifiers.len());
-        hard_policy.step(&mut net, &mut fw_state)?;
-        if !hard_policy.check() {
-            error!(
-                "{:#?}",
-                hard_policy
-                    .last_errors()
-                    .iter()
-                    .map(|e| e.repr_with_name(&net))
-                    .collect::<Vec<_>>()
-            );
-            return Err(Error::InvalidInitialState);
-        }
         let stop_time: Option<SystemTime> = time_budget.map(|dur| SystemTime::now() + dur);
         Ok(Box::new(Self {
             net,
             modifiers,
-            hard_policy,
             stop_time,
             phantom: PhantomData,
             #[cfg(feature = "count-states")]
@@ -116,19 +83,23 @@ where
         let mut mod_sequence: Vec<ConfigModifier> = Vec::new();
 
         let mut net = self.net.clone();
-        let mut hard_policy = self.hard_policy.clone();
+
+        let mut all_valid_ordering: Vec<Vec<ConfigModifier>> = Vec::new();
+        let mut num = 0;
 
         loop {
+            num += 1;
             let mut pop_stack: bool = false;
             let mut push_stack: Option<Stack> = None;
             if let Some(s) = stack.last_mut() {
                 // we are done if s.rem_mod is empty
                 if s.rem_mod.is_empty() {
-                    break Ok(mod_sequence);
+                    all_valid_ordering.push(mod_sequence.clone());
+                    pop_stack = true;
                 }
+                // the current modifier is equal to the length of s.rem_mod!
+                // the current modifier does not work, pop the stack!
                 if s.cur_idx >= s.rem_mod.len() {
-                    // the current modifier is equal to the length of s.rem_mod! the current
-                    // modifier does not work, pop the stack!
                     pop_stack = true;
                 } else {
                     // try the current modifier
@@ -155,16 +126,11 @@ where
                         self.num_states += 1;
                     }
 
-                    let (mod_ok, undo_policy) = if net.apply_modifier(current_mod).is_ok() {
-                        let mut fw_state = net.get_forwarding_state();
-                        hard_policy.step(&mut net, &mut fw_state)?;
-                        if hard_policy.check() {
-                            (true, false)
-                        } else {
-                            (false, true)
-                        }
+                    let mod_ok = if net.apply_modifier(current_mod).is_ok() {
+                        net.get_forwarding_state();
+                        true
                     } else {
-                        (false, false)
+                        false
                     };
 
                     if mod_ok {
@@ -175,12 +141,13 @@ where
                         mod_sequence.push(current_mod.clone());
                     } else {
                         net.undo_action()?;
-                        if undo_policy {
-                            hard_policy.undo();
-                        }
                     }
                 }
             } else {
+                if !all_valid_ordering.is_empty() {
+                    // println!("Number of all valid ordering: {:#?}", all_valid_ordering.len());
+                    break Ok(all_valid_ordering[0].clone());
+                }
                 // the stack is empty! We found nothing!
                 break Err(Error::NoSafeOrdering);
             }
@@ -188,7 +155,6 @@ where
             if pop_stack {
                 // undo the network
                 net.undo_action()?;
-                hard_policy.undo();
                 // pop the stack
                 stack.pop();
                 mod_sequence.pop();
@@ -220,7 +186,7 @@ where
     }
 }
 
-impl<O> ExhaustiveStrategy for TreeStrategy<O> where O: ModifierOrdering<ConfigModifier> {}
+impl<O> ExhaustiveStrategy for ExhaustiveTreeStrategy<O> where O: ModifierOrdering<ConfigModifier> {}
 
 struct Stack {
     pub rem_mod: Vec<ConfigModifier>,

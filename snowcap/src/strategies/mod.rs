@@ -137,6 +137,9 @@ mod naive_random;
 pub use naive_random::NaiveRandomStrategy;
 
 mod naive_random_ibr;
+mod exhaustive_tree;
+pub use exhaustive_tree::ExhaustiveTreeStrategy;
+
 pub use naive_random_ibr::NaiveRandomIBRStrategy;
 
 // dep_pairs_builder is very bad! Therefore, we do not re-export the name!
