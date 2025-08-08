@@ -1,8 +1,7 @@
 target
 .projectile
 
-smoothie/chain/chain-500-k
-smoothie/chain/chain-n-100
+smoothie/chain
 smoothie/zoo
 
 .idea
