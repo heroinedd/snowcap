@@ -138,7 +138,10 @@ pub use naive_random::NaiveRandomStrategy;
 
 mod naive_random_ibr;
 mod exhaustive_tree;
+mod tree_all_valid;
+
 pub use exhaustive_tree::ExhaustiveTreeStrategy;
+pub use tree_all_valid::TreeAllValidStrategy;
 
 pub use naive_random_ibr::NaiveRandomIBRStrategy;
 
