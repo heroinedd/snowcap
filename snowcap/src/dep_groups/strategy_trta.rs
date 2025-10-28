@@ -502,6 +502,11 @@ impl StrategyTRTA {
     pub fn seen_dependency_without_immediage_effect(&self) -> bool {
         self.seen_difficult_dependency
     }
+
+    /// Returns the number of learned dependency groups, i.e., the number of groups with more than one ConfigModifiers.
+    pub fn get_number_of_learned_dependencies(&self) -> usize {
+        self.groups.iter().map(|g| if g.len() > 1 { 1 } else { 0 }).sum()
+    }
 }
 
 #[derive(Debug, Clone)]
