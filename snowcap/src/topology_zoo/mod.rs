@@ -485,6 +485,16 @@ impl ZooTopology {
         self.graph.clone()
     }
 
+    /// Returns the disconnected
+    pub fn get_disconnected(&self) -> HashSet<usize> {
+        self.disconnected.iter().map(|n| n.index()).collect()
+    }
+
+    /// Returns the iBGP roots
+    pub fn get_ibgp_roots(&self) -> Vec<usize> {
+        self.ibgp_roots.iter().map(|idx| idx.index()).collect()
+    }
+
     /// Randomize all link weights
     pub fn randomize_link_weights(&mut self, max: u32) -> &mut Self {
         info!("Randomize the link weights.");
