@@ -82,6 +82,7 @@ pub fn generate_topology_zoo_edge_weights() -> Result<(), Box<dyn Error>> {
         let path = e.unwrap();
         let file_path = path.to_str().unwrap();
         let file_name = file_path.split('/').last().unwrap();
+        let name = file_name.split('.').next().unwrap();
 
         let mut weights = HashMap::<u64, HashMap<String, f32>>::new();
         for seed in 0..10 {
@@ -103,8 +104,8 @@ pub fn generate_topology_zoo_edge_weights() -> Result<(), Box<dyn Error>> {
         let result_str = serde_json::to_string_pretty(&weights)?;
         std::fs::write(
             format!(
-                "/Users/wangdan/ANTS/snowcap/smoothie/topology_zoo/{}.json",
-                file_name
+                "/Users/wangdan/ANTS/smoothie/networks/topology-zoo/{}/{}.json",
+                name, name
             ),
             result_str,
         )?;
@@ -169,4 +170,67 @@ pub(crate) fn read_smoothie_schedule(
     // transfer to ConfigModifiers in Snowcap
     let modifiers: Vec<ConfigModifier> = schedule.iter().map(|m| m.to_config_modifier()).collect();
     Ok(modifiers)
+}
+
+pub fn write_acquisition() {
+    'outer: for e in glob("/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/*.gml")
+        .expect("Failed to read glob pattern")
+    {
+        let path = e.unwrap();
+        let file_path = path.to_str().unwrap();
+        let file_name = file_path.split('/').last().unwrap();
+        let name = file_name.split('.').next().unwrap();
+
+        let mut acqs: HashMap<u64, Vec<Component>> = HashMap::new();
+        for seed in 0..10 {
+            let mut zoo: ZooTopology = ZooTopology::new(file_path.to_string(), seed).unwrap();
+            match zoo.acquisition_before(0.1) {
+                Ok(_) => {},
+                Err(_) => continue 'outer,
+            }
+
+            // nodes
+            let mut nodes1: Vec<usize> = Vec::new();
+            let mut nodes2: Vec<usize> = Vec::new();
+            zoo.get_graph().node_indices().into_iter().for_each(|n| {
+                if zoo.get_disconnected().contains(&n.index()) {
+                    nodes2.push(n.index());
+                } else {
+                    nodes1.push(n.index());
+                }
+            });
+
+            // rrs
+            let rrs = zoo.get_ibgp_roots();
+            let rr1: usize = *rrs.get(0).unwrap();
+            let rr2: usize = *rrs.get(1).unwrap();
+
+            let mut components: Vec<Component> = Vec::new();
+            components.push(Component {
+                nodes: nodes1,
+                rr: rr1,
+            });
+            components.push(Component {
+                nodes: nodes2,
+                rr: rr2,
+            });
+            acqs.insert(seed, components);
+        }
+
+        let result_str = serde_json::to_string_pretty(&acqs).unwrap();
+        std::fs::write(
+            format!(
+                "/Users/wangdan/ANTS/smoothie/networks/topology-zoo/{}/subnetworks.json",
+                name
+            ),
+            result_str,
+        )
+        .unwrap();
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Component {
+    nodes: Vec<usize>,
+    rr: usize,
 }
