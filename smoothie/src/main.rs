@@ -87,14 +87,26 @@ fn run_strategies(rep: i32, chain: &SmoothieChainGadget) -> Result<(), Box<dyn E
     Ok(())
 }
 
-pub fn test_topology_zoo(scenario: Scenario) -> Result<(), Box<dyn Error>> {
+pub fn test_topology_zoo(
+    scenario: Scenario,
+    run_optimizer: bool,
+    run_trta: bool,
+    run_exhaustive: bool,
+) -> Result<(), Box<dyn Error>> {
     for e in glob("/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/*.gml")
         .expect("Failed to read glob pattern")
     {
         let path = e.unwrap();
         let file_path = path.to_str().unwrap();
         let file_name = file_path.split('/').last().unwrap();
-        match run_topology_zoo(file_path, file_name, scenario.clone()) {
+        match run_topology_zoo(
+            file_path,
+            file_name,
+            scenario.clone(),
+            run_optimizer,
+            run_trta,
+            run_exhaustive,
+        ) {
             Ok(_) => (),
             Err(e) => error!("{:?}", e),
         }
@@ -106,68 +118,89 @@ fn run_topology_zoo(
     file_path: &str,
     file_name: &str,
     scenario: Scenario,
+    run_optimizer: bool,
+    run_trta: bool,
+    run_exhaustive: bool,
 ) -> Result<(), Box<dyn Error>> {
     let mut zoo: ZooTopology = ZooTopology::new(file_path.to_string(), 0)?;
-    let (network, final_config, hard_policy) =
-        match zoo.apply_scenario(scenario.clone().into(), false, 100, 1, 1.0) {
-            Ok((network, final_config, hard_policy)) => (network, final_config, hard_policy),
+
+    let (network, final_config, hard_policy, initial_time) =
+        match zoo.apply_scenario_record_initial_time(scenario.clone().into(), false, 100, 1, 1.0) {
+            Ok((network, final_config, hard_policy, initial_time)) => {
+                (network, final_config, hard_policy, initial_time)
+            }
             Err(e) => return Err(Box::new(e)),
         };
+
     let patch: ConfigPatch = network.current_config().get_diff(&final_config);
 
     // run OptimizerTRTA
-    let mut start = SystemTime::now();
-    // let mut fw_state = network.get_forwarding_state();
-    // let soft_policy = MinimizeTrafficShift::new(&mut fw_state, &network);
-    // let mut optimizer = match OptimizerTRTA::<MinimizeTrafficShift>::new(
-    //     network.clone(),
-    //     patch.modifiers.clone(),
-    //     hard_policy.clone(),
-    //     soft_policy,
-    //     Some(Duration::from_secs(600)),
-    // ) {
-    //     Ok(o) => o,
-    //     Err(e) => return Err(Box::new(e)),
-    // };
-    // optimizer.work(Stopper::new())?;
-    // let optimizer_duration = start.elapsed().unwrap().as_secs_f64();
-    // print!("{:?}\t{:?}\t", file_name, optimizer_duration);
+    if run_optimizer {
+        let mut start = SystemTime::now();
+        let mut fw_state = network.get_forwarding_state();
+        let soft_policy = MinimizeTrafficShift::new(&mut fw_state, &network);
+        let mut optimizer = match OptimizerTRTA::<MinimizeTrafficShift>::new(
+            network.clone(),
+            patch.modifiers.clone(),
+            hard_policy.clone(),
+            soft_policy,
+            Some(Duration::from_secs(600)),
+        ) {
+            Ok(o) => o,
+            Err(e) => return Err(Box::new(e)),
+        };
+        optimizer.work(Stopper::new())?;
+        let optimizer_duration = start.elapsed().unwrap().as_secs_f64();
+        print!(
+            "{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\n",
+            scenario,
+            file_name,
+            zoo.ibgp_roots,
+            initial_time,
+            optimizer_duration,
+            optimizer_duration / initial_time
+        );
+    }
 
     // run StrategyTRTA to find one valid ordering
-    let mut start = SystemTime::now();
-    let mut trta = match StrategyTRTA::new(
-        network.clone(),
-        patch.modifiers.clone(),
-        hard_policy.clone(),
-        Some(Duration::from_secs(600)),
-    ) {
-        Ok(o) => o,
-        Err(e) => return Err(Box::new(e)),
-    };
-    match trta.work(Stopper::new()) {
-        Ok(_) => (),
-        Err(e) => return Err(Box::new(e)),
-    };
-    let trta_duration = start.elapsed().unwrap().as_secs_f64();
-    print!(
-        "{:?}\t{:?}\t{:?}\t{:?}\n",
-        scenario,
-        file_name,
-        trta_duration,
-        trta.get_number_of_learned_dependencies()
-    );
+    if run_trta {
+        let mut start = SystemTime::now();
+        let mut trta = match StrategyTRTA::new(
+            network.clone(),
+            patch.modifiers.clone(),
+            hard_policy.clone(),
+            Some(Duration::from_secs(600)),
+        ) {
+            Ok(o) => o,
+            Err(e) => return Err(Box::new(e)),
+        };
+        trta.work(Stopper::new())?;
+        let trta_duration = start.elapsed().unwrap().as_secs_f64();
+        print!(
+            "{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\n",
+            scenario,
+            file_name,
+            zoo.ibgp_roots,
+            initial_time,
+            trta_duration,
+            trta_duration / initial_time,
+            trta.get_number_of_learned_dependencies()
+        );
+    }
 
     // run ExhaustiveTreeStrategy to visit all intermediate snapshots
-    // start = SystemTime::now();
-    // let mut tree = TreeAllValidStrategy::<RandomOrdering>::new(
-    //     network.clone(),
-    //     patch.modifiers.clone(),
-    //     hard_policy.clone(),
-    //     Some(Duration::from_secs(600)),
-    // )?;
-    // tree.work(Stopper::new()).unwrap_or_default();
-    // let tree_duration = start.elapsed().unwrap().as_secs_f64();
-    // print!("{:?}\n", tree_duration);
+    if run_exhaustive {
+        let mut start = SystemTime::now();
+        let mut tree = TreeAllValidStrategy::<RandomOrdering>::new(
+            network.clone(),
+            patch.modifiers.clone(),
+            hard_policy.clone(),
+            Some(Duration::from_secs(600)),
+        )?;
+        tree.work(Stopper::new()).unwrap_or_default();
+        let tree_duration = start.elapsed().unwrap().as_secs_f64();
+        print!("{:?}\n", tree_duration);
+    }
 
     Ok(())
 }
@@ -248,13 +281,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     // test_chain_change_routers()
     // compare_snowcap_smoothie_schedules("Aconet")
     // run_topology_zoo(
-    //     "/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/Aconet.gml",
-    //     "Aconet.gml",
-    //     Scenario::FullMesh2RouteReflector
+    //     "/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/Airtel.gml",
+    //     "Airtel.gml",
+    //     Scenario::NetworkAcquisition,
+    //     false,
+    //     true,
+    //     false,
     // )
     // Ok(write_acquisition())
-    test_topology_zoo(Scenario::DoubleIgpWeight)?;
-    test_topology_zoo(Scenario::FullMesh2RouteReflector)?;
-    test_topology_zoo(Scenario::DoubleLocalPref)?;
-    test_topology_zoo(Scenario::NetworkAcquisition)
+    test_topology_zoo(Scenario::DoubleIgpWeight, true, false, false)?;
+    test_topology_zoo(Scenario::FullMesh2RouteReflector, true, false, false)?;
+    test_topology_zoo(Scenario::DoubleLocalPref, true, false, false)?;
+    test_topology_zoo(Scenario::NetworkAcquisition, true, false, false)
 }
