@@ -31,6 +31,7 @@ use log::*;
 use petgraph::prelude::*;
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::time::SystemTime;
 
 mod error;
 pub use error::ZooTopologyError;
@@ -71,7 +72,8 @@ pub struct ZooTopology {
     graph: Graph<NodeData, LinkWeight, Undirected, u32>,
     /// The node data of this graph is the node index into the physical graph.
     ibgp_graph: Graph<(), (), Directed, u32>,
-    ibgp_roots: HashSet<NodeIdx>,
+    /// route reflectors
+    pub ibgp_roots: HashSet<NodeIdx>,
     /// Every node in this set is in its separate network!
     disconnected: HashSet<NodeIdx>,
     maintenance: HashSet<NodeIdx>,
@@ -116,6 +118,28 @@ impl ZooTopology {
         num_prefixes: usize,
         prefix_probability: f64,
     ) -> Result<(Network, Config, HardPolicy), Error> {
+        match self.apply_scenario_record_initial_time(
+            scenario,
+            random_root,
+            max_weight,
+            num_prefixes,
+            prefix_probability,
+        ) {
+            Ok((network, config, hard_policy, initial_time)) => Ok((network, config, hard_policy)),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// This function applies a scenario to a topology (including some common configuration). This
+    /// function may panic, if the topology does not support the scenario.
+    pub fn apply_scenario_record_initial_time(
+        &mut self,
+        scenario: Scenario,
+        random_root: bool,
+        max_weight: u32,
+        num_prefixes: usize,
+        prefix_probability: f64,
+    ) -> Result<(Network, Config, HardPolicy, f64), Error> {
         let mut net = self.get_net();
         // build initial config
 
@@ -274,12 +298,15 @@ impl ZooTopology {
                 (config_a, config_b)
             }
             Scenario::VerifyTransientCondition | Scenario::VerifyTransientConditionReverse => {
-                return self.apply_transient_condition_scenario(
+                return match self.apply_transient_condition_scenario(
                     net,
                     max_weight,
                     scenario.is_inverse(),
                     None,
-                );
+                ) {
+                    Ok((net, config, hp)) => return Ok((net, config, hp, -1 as f64)), // do not record initial_time for this
+                    Err(e) => return Err(e),
+                };
             }
         };
 
@@ -291,7 +318,9 @@ impl ZooTopology {
         net.set_config(&config_a)?;
 
         // advertise the same prefix on every router
+        let mut start = SystemTime::now();
         self.advertise_prefixes(&mut net, num_prefixes, prefix_probability)?;
+        let initial_time = start.elapsed().unwrap().as_secs_f64();
 
         // prepare the hard polcies
         let hard_policy = match scenario {
@@ -334,7 +363,7 @@ impl ZooTopology {
             }
         };
 
-        Ok((net, config_b, hard_policy))
+        Ok((net, config_b, hard_policy, initial_time))
     }
 
     /// Applies the transient condition scenario, and returns (if possible) the tuple `Network`,
@@ -501,7 +530,7 @@ impl ZooTopology {
         for edge_index in self.graph.edge_indices() {
             let edge_weight = self.graph.edge_weight_mut(edge_index).unwrap();
             let weight: u32 = (self.rng.next_u32() % max) + 1u32;
-            *edge_weight = weight as LinkWeight;
+            *edge_weight = 1 as LinkWeight;
         }
         self
     }
@@ -803,7 +832,7 @@ impl ZooTopology {
     }
 
     /// Prepares the network to be set up for a BGP acquisition. The following is done:
-    /// 1. The netowrk is split into two connected parts. All links between the two components are
+    /// 1. The network is split into two connected parts. All links between the two components are
     ///    disabled. The two connected parts will both have at least one node connected to external
     ///    devices.
     /// 2. In one of the two components, the IGP weights will be scaled by the `igp_scale_factor`
