@@ -325,11 +325,17 @@ impl ZooTopology {
                 // set route-reflector topology
                 let (mut component_a, mut rr_a, mut component_b, mut rr_b) =
                     self.read_components(&topo_name)?;
-                let n1 =
-                    component_a.iter().filter(|v| !net.get_external_routers().contains(v)).count();
-                let n2 =
-                    component_b.iter().filter(|v| !net.get_external_routers().contains(v)).count();
-                if n2 > n1 {
+                component_a = component_a
+                    .iter()
+                    .filter(|v| !net.get_external_routers().contains(v))
+                    .map(|v| *v)
+                    .collect();
+                component_b = component_b
+                    .iter()
+                    .filter(|v| !net.get_external_routers().contains(v))
+                    .map(|v| *v)
+                    .collect();
+                if component_b.len() > component_a.len() {
                     (component_a, component_b) = (component_b, component_a);
                     (rr_a, rr_b) = (rr_b, rr_a);
                 }
