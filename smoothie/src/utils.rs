@@ -173,26 +173,36 @@ pub(crate) fn read_smoothie_schedule(
 }
 
 pub fn write_acquisition() {
-    'outer: for e in glob("/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/*.gml")
+    for e in glob("/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/*.gml")
         .expect("Failed to read glob pattern")
     {
         let path = e.unwrap();
         let file_path = path.to_str().unwrap();
-        let file_name = file_path.split('/').last().unwrap();
-        let name = file_name.split('.').next().unwrap();
+        write_acquisition_subnets(file_path);
+    }
+}
 
-        let mut acqs: HashMap<u64, Vec<Component>> = HashMap::new();
-        for seed in 0..10 {
-            let mut zoo: ZooTopology = ZooTopology::new(file_path.to_string(), seed).unwrap();
-            match zoo.acquisition_before(0.1) {
-                Ok(_) => {},
-                Err(_) => continue 'outer,
-            }
+pub fn write_acquisition_subnets(file_path: &str) {
+    let file_name = file_path.split('/').last().unwrap();
+    let name = file_name.split('.').next().unwrap();
+    println!("Writing acquisition of {}", name);
 
-            // nodes
-            let mut nodes1: Vec<usize> = Vec::new();
-            let mut nodes2: Vec<usize> = Vec::new();
-            zoo.get_graph().node_indices().into_iter().for_each(|n| {
+    let mut acqs: HashMap<u64, Vec<Component>> = HashMap::new();
+    for seed in 0..10 {
+        let mut zoo: ZooTopology = ZooTopology::new(file_path.to_string(), seed).unwrap();
+        match zoo.acquisition_before(0.1) {
+            Ok(_) => {}
+            Err(_) => return,
+        }
+
+        // nodes
+        let mut nodes1: Vec<usize> = Vec::new();
+        let mut nodes2: Vec<usize> = Vec::new();
+        zoo.get_graph()
+            .node_indices()
+            .into_iter()
+            .filter(|n| !zoo.get_graph().node_weight(*n).unwrap().external)
+            .for_each(|n| {
                 if zoo.get_disconnected().contains(&n.index()) {
                     nodes2.push(n.index());
                 } else {
@@ -200,33 +210,32 @@ pub fn write_acquisition() {
                 }
             });
 
-            // rrs
-            let rrs = zoo.get_ibgp_roots();
-            let rr1: usize = *rrs.get(0).unwrap();
-            let rr2: usize = *rrs.get(1).unwrap();
+        // rrs
+        let rrs = zoo.get_ibgp_roots();
+        let rr1: usize = *rrs.get(0).unwrap();
+        let rr2: usize = *rrs.get(1).unwrap();
+        let flag = nodes1.contains(&rr1);
 
-            let mut components: Vec<Component> = Vec::new();
-            components.push(Component {
-                nodes: nodes1,
-                rr: rr1,
-            });
-            components.push(Component {
-                nodes: nodes2,
-                rr: rr2,
-            });
-            acqs.insert(seed, components);
-        }
-
-        let result_str = serde_json::to_string_pretty(&acqs).unwrap();
-        std::fs::write(
-            format!(
-                "/Users/wangdan/ANTS/smoothie/networks/topology-zoo/{}/subnetworks.json",
-                name
-            ),
-            result_str,
-        )
-        .unwrap();
+        let mut components: Vec<Component> = Vec::new();
+        components.push(Component {
+            nodes: nodes1,
+            rr: if flag { rr1 } else { rr2 },
+        });
+        components.push(Component {
+            nodes: nodes2,
+            rr: if flag { rr2 } else { rr1 },
+        });
+        acqs.insert(seed, components);
     }
+
+    let result_str = serde_json::to_string_pretty(&acqs).unwrap();
+    let write_result = std::fs::write(
+        format!(
+            "/Users/wangdan/ANTS/smoothie/networks/topology-zoo/{}/subnetworks.json",
+            name
+        ),
+        result_str,
+    );
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
