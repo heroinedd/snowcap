@@ -200,7 +200,7 @@ impl Strategy for StrategyTRTA {
         let mut fw_state = net.get_forwarding_state();
         hard_policy.step(&mut net, &mut fw_state)?;
         if !hard_policy.check() {
-            error!("Initial state errors::\n{}", fmt_err(&hard_policy.get_watch_errors(), &net));
+            // error!("Initial state errors::\n{}", fmt_err(&hard_policy.get_watch_errors(), &net));
             return Err(Error::InvalidInitialState);
         }
 

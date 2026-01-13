@@ -133,6 +133,7 @@ fn run_topology_zoo(
         };
 
     let patch: ConfigPatch = network.current_config().get_diff(&final_config);
+    let num_updates = patch.modifiers.len();
 
     // run OptimizerTRTA
     if run_optimizer {
@@ -152,13 +153,15 @@ fn run_topology_zoo(
         optimizer.work(Stopper::new())?;
         let optimizer_duration = start.elapsed().unwrap().as_secs_f64();
         print!(
-            "{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\n",
+            "{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\n",
             scenario,
             file_name,
             zoo.ibgp_roots,
             initial_time,
             optimizer_duration,
-            optimizer_duration / initial_time
+            optimizer_duration / initial_time,
+            optimizer.num_states(),
+            num_updates
         );
     }
 
@@ -177,13 +180,15 @@ fn run_topology_zoo(
         trta.work(Stopper::new())?;
         let trta_duration = start.elapsed().unwrap().as_secs_f64();
         print!(
-            "{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\n",
+            "{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\n",
             scenario,
             file_name,
             zoo.ibgp_roots,
             initial_time,
             trta_duration,
             trta_duration / initial_time,
+            trta.num_states(),
+            num_updates,
             trta.get_number_of_learned_dependencies()
         );
     }
@@ -281,16 +286,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     // test_chain_change_routers()
     // compare_snowcap_smoothie_schedules("Aconet")
     // run_topology_zoo(
-    //     "/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/Airtel.gml",
-    //     "Airtel.gml",
-    //     Scenario::NetworkAcquisition,
+    //     "/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/Belnet2006.gml",
+    //     "Belnet2006.gml",
+    //     Scenario::DoubleRouteReflector,
     //     false,
     //     true,
     //     false,
     // )
     // Ok(write_acquisition())
-    test_topology_zoo(Scenario::DoubleIgpWeight, true, false, false)?;
-    test_topology_zoo(Scenario::FullMesh2RouteReflector, true, false, false)?;
-    test_topology_zoo(Scenario::DoubleLocalPref, true, false, false)?;
-    test_topology_zoo(Scenario::NetworkAcquisition, true, false, false)
+    test_topology_zoo(Scenario::DoubleIgpWeight, false, true, false)?;
+    test_topology_zoo(Scenario::FullMesh2RouteReflector, false, true, false)?;
+    test_topology_zoo(Scenario::DoubleLocalPref, false, true, false)?;
+    test_topology_zoo(Scenario::NetworkAcquisition, false, true, false)?;
+    test_topology_zoo(Scenario::DoubleRouteReflector, false, true, false)
 }
