@@ -1,5 +1,4 @@
 mod smoothie_chain;
-mod test;
 mod utils;
 
 use crate::smoothie_chain::SmoothieChainGadget;
