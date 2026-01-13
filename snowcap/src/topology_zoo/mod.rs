@@ -247,10 +247,10 @@ impl ZooTopology {
             }
             Scenario::NetworkAcquisition | Scenario::NetworkSplit => {
                 self.randomize_link_weights(max_weight);
-                self.acquisition_before(0.1)?;
+                self.acquisition_before(2.0)?;
                 let config_a = self.get_config()?;
                 let mut t_clone = self.clone();
-                t_clone.acquisition_after(0.1, max_weight);
+                t_clone.acquisition_after(2.0, max_weight);
                 let config_b = t_clone.get_config()?;
                 (config_a, config_b)
             }
