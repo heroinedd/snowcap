@@ -245,6 +245,7 @@ pub enum Scenario {
     /// modifier, which adds an eBGP session.
     #[clap(name = "TransientRev")]
     VerifyTransientConditionReverse,
+    DoubleRouteReflector,
 }
 
 impl fmt::Display for Scenario {
@@ -292,6 +293,9 @@ impl fmt::Display for Scenario {
             Scenario::VerifyTransientConditionReverse => {
                 write!(f, "VerifyTransientConditionReverse")
             }
+            Scenario::DoubleRouteReflector => {
+                write!(f, "DoubleRouteReflector")
+            }
         }
     }
 }
@@ -320,6 +324,7 @@ impl Into<topology_zoo::Scenario> for Scenario {
             Scenario::VerifyTransientConditionReverse => {
                 topology_zoo::Scenario::VerifyTransientConditionReverse
             }
+            Scenario::DoubleRouteReflector => topology_zoo::Scenario::DoubleRouteReflector,
         }
     }
 }

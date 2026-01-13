@@ -27,6 +27,9 @@ pub enum ZooTopologyError {
     /// Gml Parse Error
     #[error("Cannot parse GML file: {0}")]
     GmlParseError(#[from] GmlError),
+    /// Json Parse Error
+    #[error("Error parsing Json file: {0}")]
+    JsonParseError(String),
     /// Too few internal routers present in the network to generate the topology
     #[error("Too few internal routers")]
     TooFewInternalRouters,

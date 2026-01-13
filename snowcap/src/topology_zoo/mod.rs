@@ -23,14 +23,20 @@ use crate::netsim::config::{
     ConfigExpr::{self, *},
 };
 use crate::netsim::route_map::*;
-use crate::netsim::{AsId, BgpSessionType::*, LinkWeight, Network, NetworkError, Prefix, RouterId};
-use crate::Error;
+use crate::netsim::{
+    AsId, BgpSessionType, BgpSessionType::*, LinkWeight, Network, NetworkError, Prefix, RouterId,
+};
+use crate::{netsim, Error};
 
 use itertools::iproduct;
 use log::*;
 use petgraph::prelude::*;
 use rand::prelude::*;
+use serde_json;
+use serde_json::Value;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::fs::File;
+use std::io::BufReader;
 use std::time::SystemTime;
 
 mod error;
@@ -68,6 +74,7 @@ type NodeIdx = NodeIndex<u32>;
 ///   reflector.
 #[derive(Debug, Clone)]
 pub struct ZooTopology {
+    name: String,
     rng: StdRng,
     graph: Graph<NodeData, LinkWeight, Undirected, u32>,
     /// The node data of this graph is the node index into the physical graph.
@@ -97,7 +104,11 @@ impl ZooTopology {
             ibgp_graph.add_node(());
         }
 
+        let topo_name =
+            gml_filename.as_ref().split('/').last().unwrap().split('.').next().unwrap().to_string();
+
         Ok(Self {
+            name: topo_name,
             rng: StdRng::seed_from_u64(seed),
             graph,
             ibgp_graph,
@@ -307,6 +318,59 @@ impl ZooTopology {
                     Ok((net, config, hp)) => return Ok((net, config, hp, -1 as f64)), // do not record initial_time for this
                     Err(e) => return Err(e),
                 };
+            }
+            Scenario::DoubleRouteReflector => {
+                self.randomize_link_weights(max_weight);
+                let topo_name = self.name.clone();
+                // set route-reflector topology
+                let (mut component_a, mut rr_a, mut component_b, mut rr_b) =
+                    self.read_components(&topo_name)?;
+                let n1 =
+                    component_a.iter().filter(|v| !net.get_external_routers().contains(v)).count();
+                let n2 =
+                    component_b.iter().filter(|v| !net.get_external_routers().contains(v)).count();
+                if n2 > n1 {
+                    (component_a, component_b) = (component_b, component_a);
+                    (rr_a, rr_b) = (rr_b, rr_a);
+                }
+                let config_a = self.ibgp_single_route_reflector(rr_a).get_config()?;
+                let mut config_b = Config::default();
+                for expr in config_a.iter() {
+                    let new_expr = match expr {
+                        // change (rr_b, rr_a, IBgpClient) to (rr_b, rr_a, IBgpPeer)
+                        ConfigExpr::BgpSession { source: r_1, target: r_2, session_type }
+                            if (r_1.index() == rr_a.index() && r_2.index() == rr_b.index())
+                                || (r_2.index() == rr_a.index() && r_1.index() == rr_b.index()) =>
+                        {
+                            ConfigExpr::BgpSession {
+                                source: *r_1,
+                                target: *r_2,
+                                session_type: BgpSessionType::IBgpPeer,
+                            }
+                        }
+                        ConfigExpr::BgpSession { source: r_1, target: r_2, session_type }
+                            if component_a.contains(r_1) && component_b.contains(r_2) =>
+                        {
+                            ConfigExpr::BgpSession {
+                                source: RouterId::new(rr_b.index()),
+                                target: *r_2,
+                                session_type: BgpSessionType::IBgpClient,
+                            }
+                        }
+                        ConfigExpr::BgpSession { source: r_1, target: r_2, session_type }
+                            if component_b.contains(r_1) && component_a.contains(r_2) =>
+                        {
+                            ConfigExpr::BgpSession {
+                                source: RouterId::new(rr_b.index()),
+                                target: *r_1,
+                                session_type: BgpSessionType::IBgpClient,
+                            }
+                        }
+                        _ => expr.clone(),
+                    };
+                    config_b.add(new_expr);
+                }
+                (config_a, config_b)
             }
         };
 
@@ -1020,6 +1084,63 @@ impl ZooTopology {
         self
     }
 
+    /// read the two components
+    fn read_components(
+        &mut self,
+        name: &str,
+    ) -> Result<(Vec<NodeIdx>, NodeIdx, Vec<NodeIdx>, NodeIdx), ZooTopologyError> {
+        // 1. Open and parse the JSON file
+        let path = format!("eval_sigcomm2021/metis/{}.json", name);
+        let file = File::open(&path).map_err(|_| {
+            ZooTopologyError::JsonParseError(format!("Cannot find {}", path.clone()))
+        })?;
+
+        let reader = BufReader::new(file);
+        let content: Value = serde_json::from_reader(reader)
+            .map_err(|_| ZooTopologyError::JsonParseError(path.clone()))?;
+
+        // 2. Access the data. Assuming you want the first entry (key "0")
+        // In WideJpn.json, each key maps to an array of two objects.
+        let data_array = content
+            .get("0")
+            .and_then(|v| v.as_array())
+            .ok_or(ZooTopologyError::JsonParseError(path.clone()))?;
+
+        // 3. Parse Component A (First object in the array)
+        let obj_a = &data_array[0];
+        let component_a: Vec<NodeIdx> = obj_a["nodes"]
+            .as_array()
+            .ok_or(ZooTopologyError::JsonParseError(path.clone()))?
+            .iter()
+            .map(|v| {
+                v.as_u64()
+                    .map(|n| NodeIdx::from(n as u32))
+                    .ok_or(ZooTopologyError::JsonParseError(path.clone()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let rr_a: NodeIdx = NodeIdx::from(
+            obj_a["rr"].as_u64().ok_or(ZooTopologyError::JsonParseError(path.clone()))? as u32,
+        );
+
+        // 4. Parse Component B (Second object in the array)
+        let obj_b = &data_array[1];
+        let component_b: Vec<NodeIdx> = obj_b["nodes"]
+            .as_array()
+            .ok_or(ZooTopologyError::JsonParseError(path.clone()))?
+            .iter()
+            .map(|v| {
+                v.as_u64()
+                    .map(|n| NodeIdx::from(n as u32))
+                    .ok_or(ZooTopologyError::JsonParseError(path.clone()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let rr_b: NodeIdx = NodeIdx::from(
+            obj_b["rr"].as_u64().ok_or(ZooTopologyError::JsonParseError(path.clone()))? as u32,
+        );
+
+        Ok((component_a, rr_a, component_b, rr_b))
+    }
+
     /// Helper function to extend a component by one node, if possible.
     fn extend_node(&mut self, component: &[NodeIdx], other: &[NodeIdx]) -> Option<NodeIdx> {
         let mut choices = component
@@ -1462,6 +1583,11 @@ pub enum Scenario {
     /// Test scenario for verifying transient state conditions. This scenario contains only a single
     /// modifier, which adds an eBGP session.
     VerifyTransientConditionReverse,
+    /// Scenario, where we start with one route reflector and add another route reflector. Different
+    /// from IntroduceSecondRouteReflector, we divide the network into two components, and for routers
+    /// in the component containing the new route reflector, we remove their client sessions with the
+    /// old route reflector, and add new client session to the new route reflector.
+    DoubleRouteReflector,
 }
 
 impl Scenario {
@@ -1473,7 +1599,8 @@ impl Scenario {
             | Scenario::NetworkAcquisition
             | Scenario::DisconnectRouter
             | Scenario::DoubleLocalPref
-            | Scenario::VerifyTransientCondition => false,
+            | Scenario::VerifyTransientCondition
+            | Scenario::DoubleRouteReflector => false,
             Scenario::RouteReflector2FullMesh
             | Scenario::HalveIgpWeight
             | Scenario::RemoveSecondRouteReflector
@@ -1490,7 +1617,7 @@ impl Scenario {
 pub struct NodeData {
     /// Name of the node
     pub name: String,
-    /// Wether the node is an external router or not
+    /// Whether the node is an external router or not
     pub external: bool,
     /// As Id
     pub as_id: AsId,
