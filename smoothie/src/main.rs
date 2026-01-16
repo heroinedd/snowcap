@@ -18,6 +18,7 @@ use snowcap::topology_zoo::ZooTopology;
 use snowcap::Stopper;
 use snowcap_main::arguments::Scenario;
 use std::collections::HashMap;
+use std::env;
 use std::error::Error;
 use std::time::{Duration, SystemTime};
 
@@ -88,6 +89,7 @@ fn run_strategies(rep: i32, chain: &SmoothieChainGadget) -> Result<(), Box<dyn E
 
 pub fn test_topology_zoo(
     scenario: Scenario,
+    num_prefixes_per_er: usize,
     run_optimizer: bool,
     run_trta: bool,
     run_exhaustive: bool,
@@ -102,6 +104,7 @@ pub fn test_topology_zoo(
             file_path,
             file_name,
             scenario.clone(),
+            num_prefixes_per_er,
             run_optimizer,
             run_trta,
             run_exhaustive,
@@ -117,19 +120,26 @@ fn run_topology_zoo(
     file_path: &str,
     file_name: &str,
     scenario: Scenario,
+    num_prefixes_per_er: usize,
     run_optimizer: bool,
     run_trta: bool,
     run_exhaustive: bool,
 ) -> Result<(), Box<dyn Error>> {
     let mut zoo: ZooTopology = ZooTopology::new(file_path.to_string(), 0)?;
 
-    let (network, final_config, hard_policy, initial_time) =
-        match zoo.apply_scenario_record_initial_time(scenario.clone().into(), false, 100, 1, 1.0) {
-            Ok((network, final_config, hard_policy, initial_time)) => {
-                (network, final_config, hard_policy, initial_time)
-            }
-            Err(e) => return Err(Box::new(e)),
-        };
+    let (network, final_config, hard_policy, initial_time) = match zoo
+        .apply_scenario_record_initial_time(
+            scenario.clone().into(),
+            false,
+            100,
+            num_prefixes_per_er,
+            1.0,
+        ) {
+        Ok((network, final_config, hard_policy, initial_time)) => {
+            (network, final_config, hard_policy, initial_time)
+        }
+        Err(e) => return Err(Box::new(e)),
+    };
 
     let patch: ConfigPatch = network.current_config().get_diff(&final_config);
     let num_updates = patch.modifiers.len();
@@ -281,6 +291,11 @@ struct TopologyZooResult {
 
 fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init();
+    let args: Vec<String> = env::args().collect();
+    let mut num_prefix = 1;
+    if args.len() > 1 {
+        num_prefix = args[1].parse::<usize>()?;
+    }
     // test_chain_change_steps()
     // test_chain_change_routers()
     // compare_snowcap_smoothie_schedules("Aconet")
@@ -293,9 +308,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     false,
     // )
     // Ok(write_acquisition())
-    test_topology_zoo(Scenario::DoubleIgpWeight, false, true, false)?;
-    test_topology_zoo(Scenario::FullMesh2RouteReflector, false, true, false)?;
-    test_topology_zoo(Scenario::DoubleLocalPref, false, true, false)?;
-    test_topology_zoo(Scenario::NetworkAcquisition, false, true, false)?;
-    test_topology_zoo(Scenario::DoubleRouteReflector, false, true, false)
+    test_topology_zoo(Scenario::DoubleIgpWeight, num_prefix, false, true, false)?;
+    test_topology_zoo(
+        Scenario::FullMesh2RouteReflector,
+        num_prefix,
+        false,
+        true,
+        false,
+    )?;
+    test_topology_zoo(Scenario::DoubleLocalPref, num_prefix, false, true, false)?;
+    test_topology_zoo(Scenario::NetworkAcquisition, num_prefix, false, true, false)?;
+    test_topology_zoo(
+        Scenario::DoubleRouteReflector,
+        num_prefix,
+        false,
+        true,
+        false,
+    )
 }

@@ -1200,13 +1200,16 @@ impl ZooTopology {
     /// way:
     ///
     /// For each prefix and for each external router, determine (by using randomness), if the route
-    /// should be advertised by by this external router, based on the probability given as argument.
+    /// should be advertised by this external router, based on the probability given as argument.
     pub fn advertise_prefixes(
         &mut self,
         net: &mut Network,
         num_prefixes: usize,
         probability: f64,
     ) -> Result<(), NetworkError> {
+        if (num_prefixes > 1) {
+            return self.different_er_advertise_different_prefixes(net, num_prefixes);
+        }
         info!("Advertise {} prefixes in the network", num_prefixes);
         let mut external_nodes: Vec<NodeIdx> = self
             .graph
@@ -1258,7 +1261,7 @@ impl ZooTopology {
 
         // if we are disconnected, we need to make sure that both components know the same prefixes
         if !self.disconnected.is_empty() {
-            // prepare the must known prefixes and the lookup for the AS id
+            // prepare the must-known prefixes and the lookup for the AS id
             let must_known_prefixes: HashSet<Prefix> =
                 prefixes.iter().map(|(p, _)| p).cloned().collect();
             let prefix_as: HashMap<Prefix, AsId> = prefixes.iter().cloned().collect();
@@ -1324,6 +1327,34 @@ impl ZooTopology {
         Ok(())
     }
 
+    /// # Advertise prefixes
+    /// This function let each external router announce different prefixes
+    pub fn different_er_advertise_different_prefixes(
+        &mut self,
+        net: &mut Network,
+        num_prefixes_per_er: usize,
+    ) -> Result<(), NetworkError> {
+        let mut external_nodes: Vec<NodeIdx> = self
+            .graph
+            .node_indices()
+            .into_iter()
+            .filter(|x| self.graph.node_weight(*x).unwrap().external)
+            .collect();
+        // sort before shuffle, to guarantee that we always get the same result
+        external_nodes.sort();
+
+        for i in 0..external_nodes.len() {
+            let node_idx = external_nodes[i];
+            let node = self.graph.node_weight(node_idx).unwrap();
+            let node_as_id = node.as_id;
+            for j in 0..num_prefixes_per_er {
+                let prefix = Prefix((i * num_prefixes_per_er + j) as u32);
+                trace!("{} advertises {}", node.name, prefix.0);
+                net.advertise_external_route(node_idx, prefix, vec![node_as_id], None, None)?;
+            }
+        }
+        Ok(())
+    }
     /// Returns the current configuration based on the already prepared data.
     ///
     /// # Panics
