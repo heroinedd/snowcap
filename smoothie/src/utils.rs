@@ -16,9 +16,9 @@ use std::error::Error;
 /// Returns a formatted string for the given modifier, where all router names are inserted.
 pub fn config_modifier(net: &Network, modifier: &ConfigModifier) -> Result<String, NetworkError> {
     Ok(match modifier {
-        ConfigModifier::Insert(e) => format!("INSERT {}", config_expr(net, e)?),
-        ConfigModifier::Remove(e) => format!("REMOVE {}", config_expr(net, e)?),
-        ConfigModifier::Update { from: _, to } => format!("MODIFY {}", config_expr(net, to)?),
+        ConfigModifier::Insert(e) => format!("+ {}", config_expr(net, e)?),
+        ConfigModifier::Remove(e) => format!("- {}", config_expr(net, e)?),
+        ConfigModifier::Update { from: _, to } => format!("m {}", config_expr(net, to)?),
     })
 }
 
@@ -40,14 +40,14 @@ pub fn config_expr(net: &Network, expr: &ConfigExpr) -> Result<String, NetworkEr
             target,
             session_type,
         } => format!(
-            "BGP Session: {} -> {}: type: {}",
-            source.index(),
-            target.index(),
+            "{} Session: {} -> {}",
             match session_type {
                 BgpSessionType::EBgp => "eBGP",
                 BgpSessionType::IBgpClient => "iBGP Client",
                 BgpSessionType::IBgpPeer => "iBGP Peer",
-            }
+            },
+            source.index(),
+            target.index(),
         ),
         ConfigExpr::BgpRouteMap {
             router,
