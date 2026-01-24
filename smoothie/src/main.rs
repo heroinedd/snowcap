@@ -93,6 +93,7 @@ pub fn test_topology_zoo(
     run_optimizer: bool,
     run_trta: bool,
     run_exhaustive: bool,
+    transient: bool,
 ) -> Result<(), Box<dyn Error>> {
     for e in glob("/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/*.gml")
         .expect("Failed to read glob pattern")
@@ -108,6 +109,7 @@ pub fn test_topology_zoo(
             run_optimizer,
             run_trta,
             run_exhaustive,
+            transient,
         ) {
             Ok(_) => (),
             Err(e) => error!("{:?}", e),
@@ -124,6 +126,7 @@ fn run_topology_zoo(
     run_optimizer: bool,
     run_trta: bool,
     run_exhaustive: bool,
+    transient: bool,
 ) -> Result<(), Box<dyn Error>> {
     let mut zoo: ZooTopology = ZooTopology::new(file_path.to_string(), 0)?;
 
@@ -134,6 +137,7 @@ fn run_topology_zoo(
             100,
             num_prefixes_per_er,
             1.0,
+            transient,
         ) {
         Ok((network, final_config, hard_policy, initial_time)) => {
             (network, final_config, hard_policy, initial_time)
@@ -186,7 +190,11 @@ fn run_topology_zoo(
             Ok(o) => o,
             Err(e) => return Err(Box::new(e)),
         };
-        trta.work(Stopper::new())?;
+        let plan = trta.work(Stopper::new())?;
+        let plan_str: Vec<String> = plan
+            .iter()
+            .map(|s| config_modifier(&network, s).unwrap())
+            .collect::<Vec<String>>();
         let trta_duration = start.elapsed().unwrap().as_secs_f64();
         print!(
             "{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\n",
@@ -200,6 +208,7 @@ fn run_topology_zoo(
             num_updates,
             trta.get_number_of_learned_dependencies()
         );
+        println!("{:?}", plan_str);
     }
 
     // run ExhaustiveTreeStrategy to visit all intermediate snapshots
@@ -300,29 +309,54 @@ fn main() -> Result<(), Box<dyn Error>> {
     // test_chain_change_routers()
     // compare_snowcap_smoothie_schedules("Aconet")
     // run_topology_zoo(
-    //     "/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/Belnet2006.gml",
-    //     "Belnet2006.gml",
+    //     "/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/SmoothieExample.gml",
+    //     "SmoothieExample.gml",
     //     Scenario::DoubleRouteReflector,
+    //     2,
     //     false,
     //     true,
     //     false,
+    //     true,
     // )
     // Ok(write_acquisition())
-    test_topology_zoo(Scenario::DoubleIgpWeight, num_prefix, false, true, false)?;
+    test_topology_zoo(
+        Scenario::DoubleIgpWeight,
+        num_prefix,
+        false,
+        true,
+        false,
+        false,
+    )?;
     test_topology_zoo(
         Scenario::FullMesh2RouteReflector,
         num_prefix,
         false,
         true,
         false,
+        false,
     )?;
-    test_topology_zoo(Scenario::DoubleLocalPref, num_prefix, false, true, false)?;
-    test_topology_zoo(Scenario::NetworkAcquisition, num_prefix, false, true, false)?;
+    test_topology_zoo(
+        Scenario::DoubleLocalPref,
+        num_prefix,
+        false,
+        true,
+        false,
+        false,
+    )?;
+    test_topology_zoo(
+        Scenario::NetworkAcquisition,
+        num_prefix,
+        false,
+        true,
+        false,
+        false,
+    )?;
     test_topology_zoo(
         Scenario::DoubleRouteReflector,
         num_prefix,
         false,
         true,
+        false,
         false,
     )
 }

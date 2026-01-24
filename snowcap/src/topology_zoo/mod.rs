@@ -40,6 +40,7 @@ use std::io::BufReader;
 use std::time::SystemTime;
 
 mod error;
+use crate::hard_policies::Condition::TransientPath;
 pub use error::ZooTopologyError;
 
 mod gml_parser;
@@ -135,6 +136,7 @@ impl ZooTopology {
             max_weight,
             num_prefixes,
             prefix_probability,
+            false,
         ) {
             Ok((network, config, hard_policy, initial_time)) => Ok((network, config, hard_policy)),
             Err(e) => Err(e),
@@ -150,6 +152,7 @@ impl ZooTopology {
         max_weight: u32,
         num_prefixes: usize,
         prefix_probability: f64,
+        transient: bool,
     ) -> Result<(Network, Config, HardPolicy, f64), Error> {
         let mut net = self.get_net();
         // build initial config
@@ -429,7 +432,37 @@ impl ZooTopology {
                 HardPolicy::until_globally(prop_vars, &prop_vars_with, &prop_vars_without)
             }
             _ => {
-                HardPolicy::reachability(net.get_routers().iter(), net.get_known_prefixes().iter())
+                if (transient) {
+                    let reachable_prop_vars =
+                        iproduct!(net.get_routers().iter(), net.get_known_prefixes().iter())
+                            .map(|(r, p)| Condition::Reachable(*r, *p, None))
+                            .collect::<Vec<Condition>>();
+                    let transient_prop_vars =
+                        iproduct!(net.get_routers().iter(), net.get_known_prefixes().iter())
+                            .map(|(r, p)| {
+                                TransientPath(
+                                    *r,
+                                    *p,
+                                    PathCondition::Or(
+                                        net.get_external_routers()
+                                            .iter()
+                                            .map(|er| PathCondition::Node(*er))
+                                            .collect::<Vec<_>>(),
+                                    ),
+                                )
+                            })
+                            .collect::<Vec<Condition>>();
+                    let prop_vars = reachable_prop_vars
+                        .into_iter()
+                        .chain(transient_prop_vars.into_iter())
+                        .collect::<Vec<_>>();
+                    HardPolicy::globally(prop_vars)
+                } else {
+                    HardPolicy::reachability(
+                        net.get_routers().iter(),
+                        net.get_known_prefixes().iter(),
+                    )
+                }
             }
         };
 
