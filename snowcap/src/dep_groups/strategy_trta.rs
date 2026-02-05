@@ -179,6 +179,7 @@ pub struct StrategyTRTA {
     rng: ThreadRng,
     stop_time: Option<SystemTime>,
     max_group_solve_time: Option<Duration>,
+    prop_check_time: f64,
     #[cfg(feature = "count-states")]
     num_states: usize,
     #[cfg(feature = "count-states")]
@@ -221,6 +222,7 @@ impl Strategy for StrategyTRTA {
             rng: rand::thread_rng(),
             stop_time,
             max_group_solve_time,
+            prop_check_time: 0f64,
             #[cfg(feature = "count-states")]
             num_states: 0,
             #[cfg(feature = "count-states")]
@@ -236,6 +238,8 @@ impl Strategy for StrategyTRTA {
         // clone the network and the hard policies to work with them for the tree exploration
         let mut net = self.net.clone();
         let mut hard_policy = self.hard_policy.clone();
+
+        self.prop_check_time = 0f64;
 
         loop {
             // check for iter overflow
@@ -395,7 +399,9 @@ impl StrategyTRTA {
                 if net.apply_modifier(modifier).is_ok() {
                     num_undo_policy += 1;
                     let mut fw_state = net.get_forwarding_state();
+                    let start = SystemTime::now();
                     hard_policy.step(net, &mut fw_state).expect("cannot check policies!");
+                    self.prop_check_time += start.elapsed().unwrap().as_secs_f64();
                     if !hard_policy.check() {
                         mod_ok = false;
                         break 'apply_group;
@@ -506,6 +512,11 @@ impl StrategyTRTA {
     /// Returns the number of learned dependency groups, i.e., the number of groups with more than one ConfigModifiers.
     pub fn get_number_of_learned_dependencies(&self) -> usize {
         self.groups.iter().map(|g| if g.len() > 1 { 1 } else { 0 }).sum()
+    }
+
+    /// Returns the total property checking time during planning
+    pub fn get_prop_check_time(&self) -> f64 {
+        self.prop_check_time
     }
 }
 

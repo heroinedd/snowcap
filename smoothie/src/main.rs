@@ -195,7 +195,7 @@ fn run_topology_zoo(
             .iter()
             .map(|s| config_modifier(&network, s).unwrap())
             .collect::<Vec<String>>();
-        let trta_duration = start.elapsed().unwrap().as_secs_f64();
+        let trta_duration = start.elapsed().unwrap().as_secs_f64() - trta.get_prop_check_time();
         print!(
             "{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}\n",
             scenario,
