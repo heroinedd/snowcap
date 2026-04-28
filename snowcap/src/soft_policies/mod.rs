@@ -26,6 +26,9 @@ use crate::netsim::{ForwardingState, Network, NetworkError};
 mod minimize_traffic_shift;
 pub use minimize_traffic_shift::MinimizeTrafficShift;
 
+mod prefer_ordering;
+pub use prefer_ordering::PreferOrdering;
+
 /// Trait for creating soft policies.
 pub trait SoftPolicy {
     /// Crates a new soft policy and initializes it with correct initial values.

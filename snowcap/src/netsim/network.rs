@@ -629,6 +629,13 @@ impl Network {
         self.event_history.len()
     }
 
+    /// Returns an iterator over all `ConfigModifier`s applied so far, in order.
+    pub fn applied_modifiers(&self) -> impl Iterator<Item = &ConfigModifier> {
+        self.event_history.iter().filter_map(|(e, _)| {
+            if let Event::Config(m) = e { Some(m) } else { None }
+        })
+    }
+
     /// Clear the undo stack of all routers, and reset the event history. This does not change
     /// anything on the state of the network itself.
     pub fn clear_undo_stack(&mut self) {
