@@ -6,11 +6,13 @@ use crate::utils::*;
 use glob::glob;
 use log::error;
 use serde::Serialize;
+use snowcap::example_networks::{ExampleNetwork, SimpleNet};
+use snowcap::hard_policies::HardPolicy;
 use snowcap::modifier_ordering::RandomOrdering;
 use snowcap::netsim::config::ConfigPatch;
-use snowcap::optimizers::{Optimizer, OptimizerTRTA};
+use snowcap::optimizers::{Optimizer, OptimizerTRTA, TreeOptimizer};
 use snowcap::permutators::RandomTreePermutator;
-use snowcap::soft_policies::{MinimizeTrafficShift, SoftPolicy};
+use snowcap::soft_policies::{MinimizeTrafficShift, PreferOrdering, SoftPolicy};
 use snowcap::strategies::{
     ExhaustiveTreeStrategy, PermutationStrategy, Strategy, StrategyTRTA, TreeAllValidStrategy,
 };
@@ -94,6 +96,7 @@ pub fn test_topology_zoo(
     run_trta: bool,
     run_exhaustive: bool,
     transient: bool,
+    repeats: usize,
 ) -> Result<(), Box<dyn Error>> {
     for e in glob("/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/*.gml")
         .expect("Failed to read glob pattern")
@@ -101,18 +104,20 @@ pub fn test_topology_zoo(
         let path = e.unwrap();
         let file_path = path.to_str().unwrap();
         let file_name = file_path.split('/').last().unwrap();
-        match run_topology_zoo(
-            file_path,
-            file_name,
-            scenario.clone(),
-            num_prefixes_per_er,
-            run_optimizer,
-            run_trta,
-            run_exhaustive,
-            transient,
-        ) {
-            Ok(_) => (),
-            Err(e) => error!("{:?}", e),
+        for _ in 0..repeats {
+            match run_topology_zoo(
+                file_path,
+                file_name,
+                scenario.clone(),
+                num_prefixes_per_er,
+                run_optimizer,
+                run_trta,
+                run_exhaustive,
+                transient,
+            ) {
+                Ok(_) => (),
+                Err(e) => error!("{:?}", e),
+            }
         }
     }
     Ok(())
@@ -148,12 +153,23 @@ fn run_topology_zoo(
     let patch: ConfigPatch = network.current_config().get_diff(&final_config);
     let num_updates = patch.modifiers.len();
 
-    // run OptimizerTRTA
+    // run OptimizerTRTA with PreferOrdering on a random pair of updates
     if run_optimizer {
         let mut start = SystemTime::now();
-        let mut fw_state = network.get_forwarding_state();
-        let soft_policy = MinimizeTrafficShift::new(&mut fw_state, &network);
-        let mut optimizer = match OptimizerTRTA::<MinimizeTrafficShift>::new(
+        let n = patch.modifiers.len();
+        let (i, j) = if n >= 2 {
+            use rand::seq::index::sample;
+            let mut rng = rand::thread_rng();
+            let s = sample(&mut rng, n, 2);
+            (s.index(0), s.index(1))
+        } else {
+            (0, 0)
+        };
+        let soft_policy = PreferOrdering::new_with_modifiers(
+            patch.modifiers[i].clone(),
+            patch.modifiers[j].clone(),
+        );
+        let mut optimizer = match OptimizerTRTA::<PreferOrdering>::new(
             network.clone(),
             patch.modifiers.clone(),
             hard_policy.clone(),
@@ -208,7 +224,7 @@ fn run_topology_zoo(
             num_updates,
             trta.get_number_of_learned_dependencies()
         );
-        println!("{:?}", plan_str);
+        // println!("{:?}", plan_str);
     }
 
     // run ExhaustiveTreeStrategy to visit all intermediate snapshots
@@ -298,65 +314,156 @@ struct TopologyZooResult {
     learned_groups: usize,
 }
 
+/// Test whether Snowcap's TreeOptimizer can find a reconfiguration plan that satisfies a
+/// `PreferOrdering(u1, u2)` soft constraint (i.e., u1 applied before u2). Uses SimpleNet as the
+/// test network and exercises every consecutive modifier pair in both orderings.
+pub fn test_prefer_ordering() -> Result<(), Box<dyn Error>> {
+    let net = SimpleNet::net(0);
+    let final_config = SimpleNet::final_config(&net, 0);
+    let hard_policy = SimpleNet::get_policy(&net, 0);
+    let patch = net.current_config().get_diff(&final_config);
+    let modifiers = patch.modifiers;
+
+    println!("SimpleNet: {} modifiers", modifiers.len());
+    for (i, m) in modifiers.iter().enumerate() {
+        println!("  m{}: {}", i, config_modifier(&net, m)?);
+    }
+    println!();
+
+    for i in 0..modifiers.len().saturating_sub(1) {
+        for (label, u1_idx, u2_idx) in [("forward", i, i + 1), ("reverse", i + 1, i)] {
+            let u1 = modifiers[u1_idx].clone();
+            let u2 = modifiers[u2_idx].clone();
+            let policy = PreferOrdering::new_with_modifiers(u1, u2);
+
+            let result = TreeOptimizer::<PreferOrdering>::new(
+                net.clone(),
+                modifiers.clone(),
+                hard_policy.clone(),
+                policy,
+                None,
+            )
+            .and_then(|mut opt| opt.work(Stopper::new()));
+
+            match result {
+                Ok((ordering, cost)) => {
+                    // cost == 0 means u1 was always applied before u2
+                    let pos_u1 = ordering.iter().position(|m| m == &modifiers[u1_idx]);
+                    let pos_u2 = ordering.iter().position(|m| m == &modifiers[u2_idx]);
+                    println!(
+                        "PreferOrdering(m{}, m{}) [{}]: plan found | cost={:.1} | \
+                         preference {} | m{} at pos {:?}, m{} at pos {:?}",
+                        u1_idx,
+                        u2_idx,
+                        label,
+                        cost,
+                        if cost == 0.0 { "SATISFIED" } else { "VIOLATED" },
+                        u1_idx,
+                        pos_u1,
+                        u2_idx,
+                        pos_u2,
+                    );
+                }
+                Err(e) => {
+                    println!(
+                        "PreferOrdering(m{}, m{}) [{}]: no plan found — {:?}",
+                        u1_idx, u2_idx, label, e
+                    );
+                }
+            }
+        }
+        println!();
+    }
+
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init();
     let args: Vec<String> = env::args().collect();
-    let mut num_prefix = 1;
-    if args.len() > 1 {
-        num_prefix = args[1].parse::<usize>()?;
+
+    if args.iter().any(|a| a == "test_prefer_ordering") {
+        return test_prefer_ordering();
     }
-    // test_chain_change_steps()
-    // test_chain_change_routers()
-    // compare_snowcap_smoothie_schedules("Aconet")
-    // run_topology_zoo(
-    //     "/Users/wangdan/ANTS/snowcap/eval_sigcomm2021/topology_zoo/SmoothieExample.gml",
-    //     "SmoothieExample.gml",
-    //     Scenario::DoubleRouteReflector,
-    //     2,
-    //     false,
-    //     true,
-    //     false,
-    //     true,
-    // )
-    // Ok(write_acquisition())
+
+    // Parse named flags: --num-prefix N  --mode optimizer|trta|exhaustive  --repeats N
+    let mut num_prefix = 1usize;
+    let mut run_optimizer = false;
+    let mut run_trta = false;
+    let mut run_exhaustive = false;
+    let mut repeats = 1usize;
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--num-prefix" => {
+                i += 1;
+                num_prefix = args[i].parse()?;
+            }
+            "--mode" => {
+                i += 1;
+                match args[i].as_str() {
+                    "optimizer" => run_optimizer = true,
+                    "trta" => run_trta = true,
+                    "exhaustive" => run_exhaustive = true,
+                    m => {
+                        return Err(format!(
+                            "unknown mode: {m} (expected optimizer|trta|exhaustive)"
+                        )
+                        .into())
+                    }
+                }
+            }
+            "--repeats" => {
+                i += 1;
+                repeats = args[i].parse()?;
+            }
+            flag => return Err(format!("unknown argument: {flag}").into()),
+        }
+        i += 1;
+    }
     test_topology_zoo(
         Scenario::DoubleIgpWeight,
         num_prefix,
+        run_optimizer,
+        run_trta,
+        run_exhaustive,
         false,
-        true,
-        false,
-        false,
+        repeats,
     )?;
     test_topology_zoo(
         Scenario::FullMesh2RouteReflector,
         num_prefix,
+        run_optimizer,
+        run_trta,
+        run_exhaustive,
         false,
-        true,
-        false,
-        false,
+        repeats,
     )?;
     test_topology_zoo(
         Scenario::DoubleLocalPref,
         num_prefix,
+        run_optimizer,
+        run_trta,
+        run_exhaustive,
         false,
-        true,
-        false,
-        false,
+        repeats,
     )?;
     test_topology_zoo(
         Scenario::NetworkAcquisition,
         num_prefix,
+        run_optimizer,
+        run_trta,
+        run_exhaustive,
         false,
-        true,
-        false,
-        false,
+        repeats,
     )?;
     test_topology_zoo(
         Scenario::DoubleRouteReflector,
         num_prefix,
+        run_optimizer,
+        run_trta,
+        run_exhaustive,
         false,
-        true,
-        false,
-        false,
+        repeats,
     )
 }
